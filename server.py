@@ -1,9 +1,16 @@
+#!/usr/bin/env python3
+"""Handle api for robot
+
+"""
 from http.server import BaseHTTPRequestHandler
 import helper
 import json
 
 
 class Server(BaseHTTPRequestHandler):
+    """ Server to handle http request
+
+    """
 
     def do_HEAD(self):
         return
@@ -12,12 +19,29 @@ class Server(BaseHTTPRequestHandler):
 
         self.robotArm = helper.ctx.getRobotArm()
 
+        pathList = self.path.split("/")
+        if (len(pathList) < 2 or len(pathList) > 3):
+            self.send_json_response(
+                {'result': 'ERROR-UNKNOWN', 'message': 'Unknown command'})
+            return
+
+        cmd = pathList[1]
+        validCmds = ["pick", "home", "test", "refill", "connect"]
+        if cmd not in validCmds:
+            self.send_json_response(
+                {'result': 'ERROR-UNKNOWN', 'message': 'Unknown command'})
+            return
+
+        cmdArg = None
+        if len(pathList) > 2:
+            cmdArg = pathList[2]
+
         # ----------------------------------------------------------
         #
         #   Connect
         #
         # ----------------------------------------------------------
-        if self.path == "/connect":
+        if cmd == "connect":
             if self.robotArm.connected == True:
                 self.send_json_response(
                     {'result': 'ERROR-CONNECTED', 'message': 'Robot arm allready connected'})
@@ -30,45 +54,46 @@ class Server(BaseHTTPRequestHandler):
                     self.send_json_response(
                         {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm could not be connected'})
 
-        # ----------------------------------------------------------
-        #
-        #   Pick
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/pick":
+        elif cmd == "pick":
+            self.pick(cmdArg)
 
-            if self.robotArm.connected == False:
-                self.send_json_response(
-                    {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
-                return
+        elif cmd == "test":
+            self.test(cmdArg)
+
+        elif cmd == "home":
+            self.home()
+
+        elif cmd == "refill":
+            self.refill()
+
+        else:
+            self.send_json_response(
+                {'result': 'ERROR-UNKNOWN', 'message': 'Unknown command'})
+
+    def do_POST(self):
+        return
+
+    def pick(self, slot=None):
+        if self.robotArm.connected == False:
+            self.send_json_response(
+                {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
+            return
+
+        if slot is not None:
+            """pick specific slot"""
+            self.robotArm.pick1ChocoByIndex(int(slot))
+            message = 'Picked nr ' + str(slot)
+            self.send_json_response(
+                {'result': 'SUCCESS', 'message': message})
+
+        else:
 
             chocosLeft = helper.ctx.getChocosLeft()
             chocosTotal = helper.ctx.getChocoNum()
 
             if chocosLeft > 0:
                 chocoToPick = chocosTotal - chocosLeft + 1
-                if chocoToPick == 1:  # first choco
-                    self.robotArm.pick1Choco(0, 0)
-                elif chocoToPick == 2:
-                    self.robotArm.pick1Choco(1, 0)
-                elif chocoToPick == 3:
-                    self.robotArm.pick1Choco(1, 1)
-                elif chocoToPick == 4:
-                    self.robotArm.pick1Choco(2, 0)
-                elif chocoToPick == 5:
-                    self.robotArm.pick1Choco(2, 1)
-                elif chocoToPick == 6:
-                    self.robotArm.pick1Choco(2, 2)
-                elif chocoToPick == 7:
-                    self.robotArm.pick1Choco(2, 3)
-                elif chocoToPick == 8:
-                    self.robotArm.pick1Choco(3, 0)
-                elif chocoToPick == 9:
-                    self.robotArm.pick1Choco(3, 1)
-                elif chocoToPick == 10:
-                    self.robotArm.pick1Choco(3, 2)
-                elif chocoToPick == 11:
-                    self.robotArm.pick1Choco(3, 3)
+                self.robotArm.pick1ChocoByIndex(int(chocoToPick))
 
                 helper.ctx.setChocosLeft(chocosLeft - 1)
                 message = 'Picked nr ' + str(chocoToPick)
@@ -78,128 +103,44 @@ class Server(BaseHTTPRequestHandler):
                 self.send_json_response(
                     {'result': 'ERROR-EMPTY', 'message': 'Out of chocos. Please refill'})
 
-        # ----------------------------------------------------------
-        #
-        #
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/pick/1":
-            self.robotArm.pick1Choco(0, 0)
-        elif self.path == "/pick/2":
-            self.robotArm.pick1Choco(1, 0)
-        elif self.path == "/pick/3":
-            self.robotArm.pick1Choco(1, 1)
-        elif self.path == "/pick/4":
-            self.robotArm.pick1Choco(2, 0)
-        elif self.path == "/pick/5":
-            self.robotArm.pick1Choco(2, 1)
-        elif self.path == "/pick/6":
-            self.robotArm.pick1Choco(2, 2)
-        elif self.path == "/pick/7":
-            self.robotArm.pick1Choco(2, 3)
-        elif self.path == "/pick/8":
-            self.robotArm.pick1Choco(3, 0)
-        elif self.path == "/pick/9":
-            self.robotArm.pick1Choco(3, 1)
-        elif self.path == "/pick/10":
-            self.robotArm.pick1Choco(3, 2)
-        elif self.path == "/pick/11":
-            self.robotArm.pick1Choco(3, 3)
-
-        # ----------------------------------------------------------
-        #
-        #
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/test/1":
-            self.robotArm.testPos(0, 0)
-        elif self.path == "/test/2":
-            self.robotArm.testPos(1, 0)
-        elif self.path == "/test/3":
-            self.robotArm.testPos(1, 1)
-        elif self.path == "/test/4":
-            self.robotArm.testPos(2, 0)
-        elif self.path == "/test/5":
-            self.robotArm.testPos(2, 1)
-        elif self.path == "/test/6":
-            self.robotArm.testPos(2, 2)
-        elif self.path == "/test/7":
-            self.robotArm.testPos(2, 3)
-        elif self.path == "/test/8":
-            self.robotArm.testPos(3, 0)
-        elif self.path == "/test/9":
-            self.robotArm.testPos(3, 1)
-        elif self.path == "/test/10":
-            self.robotArm.testPos(3, 2)
-        elif self.path == "/test/11":
-            self.robotArm.testPos(3, 3)
-
-        # ----------------------------------------------------------
-        #
-        #   Test
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/test/all":
-            if self.robotArm.connected == False:
-                self.send_json_response(
-                    {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
-                return
-
-            self.robotArm.testPos(0, 0)
-            self.robotArm.testPos(1, 0)
-            self.robotArm.testPos(1, 1)
-            self.robotArm.testPos(2, 0)
-            self.robotArm.testPos(2, 1)
-            self.robotArm.testPos(2, 2)
-            self.robotArm.testPos(2, 3)
-            self.robotArm.testPos(3, 0)
-            self.robotArm.testPos(3, 1)
-            self.robotArm.testPos(3, 2)
-            self.robotArm.testPos(3, 3)
+    def test(self, slot="all"):
+        if self.robotArm.connected == False:
             self.send_json_response(
-                {'result': 'SUCCESS', 'message': 'Testing done'})
+                {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
+            return
 
-        # ----------------------------------------------------------
-        #
-        #
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/home":
-            if self.robotArm.connected == False:
-                self.send_json_response(
-                    {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
-                return
-            self.robotArm.homeRobotArm()
-            self.send_json_response(
-                {'result': 'SUCCESS', 'message': 'Robot arm position reset'})
-
-        # ----------------------------------------------------------
-        #
-        #   Refill
-        #
-        # ----------------------------------------------------------
-        elif self.path == "/refill":
-            if self.robotArm.connected == False:
-                self.send_json_response(
-                    {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
-                return
-            helper.ctx.setChocosLeft(helper.ctx.getChocoNum())
-            self.send_json_response(
-                {'result': 'SUCCESS', 'message': 'Refilled ok'})
-
-        # ----------------------------------------------------------
-        #
-        #   Unknown command
-        #
-        # ----------------------------------------------------------
+        if (slot == "all"):
+            for i in range(11):
+                self.robotArm.testPosByIndex(int(i+1))
         else:
-            self.send_json_response(
-                {'result': 'ERROR-UNKNOWN', 'message': 'Unknown command'})
+            self.robotArm.testPosByIndex(int(slot))
 
-    def do_POST(self):
-        return
+        self.send_json_response(
+            {'result': 'SUCCESS', 'message': 'Testing done'})
+
+    def refill(self):
+        """Called after robot candy refilled
+        """
+        if self.robotArm.connected == False:
+            self.send_json_response(
+                {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
+            return
+        helper.ctx.setChocosLeft(helper.ctx.getChocoNum())
+        self.send_json_response(
+            {'result': 'SUCCESS', 'message': 'Refilled ok'})
+
+    def home(self):
+        if self.robotArm.connected == False:
+            self.send_json_response(
+                {'result': 'ERROR-DISCONNECTED', 'message': 'Robot arm disconnected'})
+            return
+        self.robotArm.homeRobotArm()
+        self.send_json_response(
+            {'result': 'SUCCESS', 'message': 'Robot arm position reset'})
 
     def send_json_response(self, json_object):
+        """Send json back to the browser
+        """
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()

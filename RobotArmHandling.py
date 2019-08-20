@@ -104,6 +104,10 @@ class RobotArm:
 
         self.robotArmStandby = True
 
+    def pick1ChocoByIndex(self, index, ctx=None):
+        self.pick1Choco(cfg.chocoHeartBoxList[index]
+                        [0], cfg.chocoHeartBoxList[index][1])
+
     # pick 1 chocolate accroding to the given index
     def pick1Choco(self, row, col, ctx=None):
         if not self.connected:
@@ -146,13 +150,12 @@ class RobotArm:
         self.waitUntilQueueFinish()
         self.robotArmStandby = True
 
+    def testPosByIndex(self, index, ctx=None):
+        self.testPos(cfg.chocoHeartBoxList[index]
+                     [0], cfg.chocoHeartBoxList[index][1])
+
     # move to the position then pick and immediately drop
     def testPos(self, row, col, ctx=None):
-        if not self.connected:
-            return 1
-        if not self.robotArmStandby:
-            return 1
-        self.robotArmStandby = False
 
         if ctx is None:
             ctx = self.ctx
@@ -163,6 +166,12 @@ class RobotArm:
         print("testing pick and place at position {}".format(idx))
         x, y = ctx.chocoHeartBox[idx].locCoor
         x, y = self.boxToRoboCoor(x, y)
+
+        if not self.connected:
+            return 1
+        if not self.robotArmStandby:
+            return 1
+        self.robotArmStandby = False
 
         dType.SetPTPCmd(self.dobotApi, dType.PTPMode.PTPMOVLXYZMode,
                         x, y, ctx.DOBOT_CUPUP, 0, isQueued=1)
